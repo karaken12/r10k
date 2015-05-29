@@ -71,6 +71,72 @@ describe R10K::Module::Forge do
       expect(subject.v3_module).to receive(:latest_version).and_return('8.8.8')
       expect(subject.expected_version).to eq '8.8.8'
     end
+
+    it "uses the latest version from the forge that satisfies the conditions" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 8.0.0')
+      expect(subject.expected_version).to eq '8.8.8'
+    end
+  end
+
+  describe 'determine the version spec' do
+    it "gets the lower bound" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 1.0.0')
+      expect(subject.version_spec.lower_bound).to eq '1.0.0'
+      expect(subject.version_spec.upper_bound).to eq nil
+      expect(subject.version_spec.inc_lower_bound).to eq true
+    end
+
+    it "gets the lower bound (non inclusive)" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '> 1.0.0')
+      expect(subject.version_spec.lower_bound).to eq '1.0.0'
+      expect(subject.version_spec.upper_bound).to eq nil
+      expect(subject.version_spec.inc_lower_bound).to eq false
+    end
+
+    it "gets the upper bound" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '<= 2.0.0')
+      expect(subject.version_spec.lower_bound).to eq nil
+      expect(subject.version_spec.upper_bound).to eq '2.0.0'
+      expect(subject.version_spec.inc_upper_bound).to eq true
+    end
+
+    it "gets the upper bound (non inclusive)" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '< 2.0.0')
+      expect(subject.version_spec.lower_bound).to eq nil
+      expect(subject.version_spec.upper_bound).to eq '2.0.0'
+      expect(subject.version_spec.inc_upper_bound).to eq false
+    end
+
+    it "still gets the bound with no spaces" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>=1.0.0')
+      expect(subject.version_spec.lower_bound).to eq '1.0.0'
+      expect(subject.version_spec.upper_bound).to eq nil
+      expect(subject.version_spec.inc_lower_bound).to eq true
+    end
+
+    it "gets a range" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 1.0.0 < 2.0.0')
+      expect(subject.version_spec.lower_bound).to eq '1.0.0'
+      expect(subject.version_spec.upper_bound).to eq '2.0.0'
+      expect(subject.version_spec.inc_lower_bound).to eq true
+      expect(subject.version_spec.inc_upper_bound).to eq false
+    end
+
+    it "understands 1.x syntax" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '1.x')
+      expect(subject.version_spec.lower_bound).to eq '1.0.0'
+      expect(subject.version_spec.upper_bound).to eq '2.0.0'
+      expect(subject.version_spec.inc_lower_bound).to eq true
+      expect(subject.version_spec.inc_upper_bound).to eq false
+    end
+
+    it "understands 1.2.x syntax" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '1.2.x')
+      expect(subject.version_spec.lower_bound).to eq '1.2.0'
+      expect(subject.version_spec.upper_bound).to eq '1.3.0'
+      expect(subject.version_spec.inc_lower_bound).to eq true
+      expect(subject.version_spec.inc_upper_bound).to eq false
+    end
   end
 
   describe "determining the status" do

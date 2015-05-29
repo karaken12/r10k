@@ -65,6 +65,31 @@ class R10K::Module::Forge < R10K::Module::Base
     @expected_version
   end
 
+  VersionSpec = Struct.new(:lower_bound, :upper_bound, :inc_lower_bound, :inc_upper_bound)
+
+  def version_spec
+    if not @version_spec
+      if match = @expected_version.match('^ *(>=?|<=?) *(\d+\.\d+\.\d+) *$')
+        if match[1] == '<'
+          @version_spec = VersionSpec.new(nil, match[2], false, false)
+        elsif match[1] == '<='
+          @version_spec = VersionSpec.new(nil, match[2], false, true)
+        elsif match[1] == '>'
+          @version_spec = VersionSpec.new(match[2], nil, false, false)
+        elsif match[1] == '>='
+          @version_spec = VersionSpec.new(match[2], nil, true, false)
+        end
+      elsif match = @expected_version.match('^ *(>=?) *(\d+\.\d+\.\d+) +(<=?) *(\d+\.\d+\.\d+) *$')
+        @version_spec = VersionSpec.new(match[2], match[4], match[1]=='>=', match[3]=='<=')
+      elsif match = @expected_version.match('^ *((\d+)\.(\d+)\.x) *$')
+        @version_spec = VersionSpec.new("#{match[2]}.#{match[3]}.0", "#{match[2]}.#{match[3].to_i+1}.0", true, false)
+      elsif match = @expected_version.match('^ *((\d+)\.x) *$')
+        @version_spec = VersionSpec.new("#{match[2]}.0.0", "#{match[2].to_i+1}.0.0", true, false)
+      end
+    end
+    @version_spec
+  end
+
   # @return [String] The version of the currently installed module
   def current_version
     @metadata ? @metadata.version : nil
