@@ -72,8 +72,16 @@ describe R10K::Module::Forge do
       expect(subject.expected_version).to eq '8.8.8'
     end
 
-    it "uses the latest version from the forge that satisfies the conditions" do
+    it "uses the current version if it satisfies the condition" do
       subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 8.0.0')
+      expect(subject).to receive(:current_version).at_least(:once).and_return('8.1.0')
+      expect(subject.expected_version).to eq '8.1.0'
+    end
+
+    it "uses the latest version from the forge that satisfies the conditions" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 8.1.0')
+      expect(subject).to receive(:current_version).at_least(:once).and_return('8.0.0')
+      expect(subject.v3_module).to receive(:latest_version).at_least(:once).and_return('8.8.8')
       expect(subject.expected_version).to eq '8.8.8'
     end
   end
@@ -136,6 +144,56 @@ describe R10K::Module::Forge do
       expect(subject.version_spec.upper_bound).to eq '1.3.0'
       expect(subject.version_spec.inc_lower_bound).to eq true
       expect(subject.version_spec.inc_upper_bound).to eq false
+    end
+  end
+
+  describe "check version acceptability" do
+    it "allows a version in the middle" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '1.x')
+      expect(subject.version_in_range('1.1.0')).to eq true
+    end
+
+    it "does not allow a version outside the range" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 1.1.0 < 2.0.0')
+      expect(subject.version_in_range('1.0.5')).to eq false
+      expect(subject.version_in_range('2.0.5')).to eq false
+    end
+
+    it "allows an exact match" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 1.0.0 <= 2.0.0')
+      expect(subject.version_in_range('1.0.0')).to eq true
+      expect(subject.version_in_range('2.0.0')).to eq true
+    end
+
+    it "does not allow non-equal exact matches" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '> 1.0.0 < 2.0.0')
+      expect(subject.version_in_range('1.0.0')).to eq false
+      expect(subject.version_in_range('2.0.0')).to eq false
+    end
+  end
+
+  describe "compare versions" do
+    it "recognises equal versions" do
+      expect(described_class.compare_versions('1.0.0', '1.0.0')).to eq 0
+      expect(described_class.version_less_than('1.0.0', '1.0.0', true)).to eq true
+      expect(described_class.version_less_than('1.0.0', '1.0.0', false)).to eq false
+    end
+
+    it "major" do
+      expect(described_class.compare_versions('1.6.6', '2.3.3')).to eq -1
+      expect(described_class.compare_versions('2.6.6', '1.3.3')).to eq 1
+      expect(described_class.version_less_than('1.6.6', '2.3.3', false)).to eq true
+      expect(described_class.version_less_than('2.6.6', '1.3.3', false)).to eq false
+    end
+
+    it "minor" do
+      expect(described_class.compare_versions('1.1.6', '1.2.3')).to eq -1
+      expect(described_class.compare_versions('1.2.6', '1.1.3')).to eq 1
+    end
+
+    it "revision" do
+      expect(described_class.compare_versions('1.1.1', '1.1.2')).to eq -1
+      expect(described_class.compare_versions('1.1.2', '1.1.1')).to eq 1
     end
   end
 

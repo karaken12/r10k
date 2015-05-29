@@ -61,8 +61,62 @@ class R10K::Module::Forge < R10K::Module::Base
   def expected_version
     if @expected_version == :latest
       @expected_version = @v3_module.latest_version
+    elsif !@expected_version.match('^\d+\.\d+\.\d+$')
+      # Needs some processing doing
+      @expected_version = get_matching_version()
     end
     @expected_version
+  end
+
+  # @return [String] A version that matches the version of the module
+  def get_matching_version()
+    # First check if the current version works
+    if current_version
+      if version_in_range(current_version) then return current_version end
+    end
+    # Now try the latest version
+    if version_in_range(@v3_module.latest_version) then return @v3_module.latest_version end
+    # Otherwise, do something clever
+    return nil
+  end
+
+  def version_in_range(version_to_check)
+    matches = true
+    if version_spec.lower_bound
+      # version_spec.lower_bound < version_to_check
+      matchx = R10K::Module::Forge.version_less_than(version_spec.lower_bound, version_to_check, version_spec.inc_lower_bound)
+      matches = (matches and matchx)
+    end
+    if version_spec.upper_bound
+      # version_to_check < version_spec.upper_bound
+      matchx = R10K::Module::Forge.version_less_than(version_to_check, version_spec.upper_bound, version_spec.inc_upper_bound)
+      matches = (matches and matchx)
+    end
+    return matches
+  end
+
+  def self.version_less_than(left_version_string, right_version_string, include_equals)
+    compare = compare_versions(left_version_string, right_version_string)
+    if include_equals
+      return compare <= 0
+    else
+      return compare < 0
+    end
+  end
+
+  # @return [int] -1 If the left version is less than the right, +1 if the left version is greater than the right, and 0 if they are the same.
+  def self.compare_versions(left_version_string, right_version_string)
+    left_version = left_version_string.match('^ *(\d+)\.(\d+)\.(\d+) *$')
+    right_version = right_version_string.match('^ *(\d+)\.(\d+)\.(\d+) *$')
+
+    compare = left_version[1].to_i <=> right_version[1].to_i
+    if compare != 0 then return compare end
+    compare = left_version[2].to_i <=> right_version[2].to_i
+    if compare != 0 then return compare end
+    compare = left_version[3].to_i <=> right_version[3].to_i
+    if compare != 0 then return compare end
+
+    return 0
   end
 
   VersionSpec = Struct.new(:lower_bound, :upper_bound, :inc_lower_bound, :inc_upper_bound)
