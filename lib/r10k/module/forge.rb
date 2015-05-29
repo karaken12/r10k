@@ -76,47 +76,63 @@ class R10K::Module::Forge < R10K::Module::Base
     end
     # Now try the latest version
     if version_in_range(@v3_module.latest_version) then return @v3_module.latest_version end
-    # Otherwise, do something clever
-    return nil
+    # Otherwise run through all available versions to check, and use the latest
+    best_match = nil
+    for candidate in @v3_module.versions
+      if (best_match == nil || ForgeVersion.new(best_match) < ForgeVersion.new(candidate)) && version_in_range(candidate)
+        best_match = candidate
+      end
+    end
+    return best_match
+  end
+
+  class ForgeVersion
+    include Comparable
+
+    attr :major
+    attr :minor
+    attr :revision
+
+    def initialize(version_string)
+      @version_string = version_string
+      match = version_string.match('^ *(\d+)\.(\d+)\.(\d+) *$')
+      @major = match[1].to_i
+      @minor = match[2].to_i
+      @revision = match[3].to_i
+    end
+
+    def to_s
+      return "#{major}.#{minor}.#{revision}"
+    end
+
+    def <=>(other)
+      compare = self.major <=> other.major
+      if compare != 0 then return compare end
+      compare = self.minor <=> other.minor
+      if compare != 0 then return compare end
+      return self.revision <=> other.revision
+    end
   end
 
   def version_in_range(version_to_check)
     matches = true
     if version_spec.lower_bound
-      # version_spec.lower_bound < version_to_check
-      matchx = R10K::Module::Forge.version_less_than(version_spec.lower_bound, version_to_check, version_spec.inc_lower_bound)
-      matches = (matches and matchx)
+      if version_spec.inc_lower_bound
+        comp = ForgeVersion.new(version_spec.lower_bound) <= ForgeVersion.new(version_to_check)
+      else
+        comp = ForgeVersion.new(version_spec.lower_bound) < ForgeVersion.new(version_to_check)
+      end
+      matches = (matches && comp)
     end
     if version_spec.upper_bound
-      # version_to_check < version_spec.upper_bound
-      matchx = R10K::Module::Forge.version_less_than(version_to_check, version_spec.upper_bound, version_spec.inc_upper_bound)
-      matches = (matches and matchx)
+      if version_spec.inc_upper_bound
+        comp = ForgeVersion.new(version_spec.upper_bound) >= ForgeVersion.new(version_to_check)
+      else
+        comp = ForgeVersion.new(version_spec.upper_bound) > ForgeVersion.new(version_to_check)
+      end
+      matches = (matches && comp)
     end
     return matches
-  end
-
-  def self.version_less_than(left_version_string, right_version_string, include_equals)
-    compare = compare_versions(left_version_string, right_version_string)
-    if include_equals
-      return compare <= 0
-    else
-      return compare < 0
-    end
-  end
-
-  # @return [int] -1 If the left version is less than the right, +1 if the left version is greater than the right, and 0 if they are the same.
-  def self.compare_versions(left_version_string, right_version_string)
-    left_version = left_version_string.match('^ *(\d+)\.(\d+)\.(\d+) *$')
-    right_version = right_version_string.match('^ *(\d+)\.(\d+)\.(\d+) *$')
-
-    compare = left_version[1].to_i <=> right_version[1].to_i
-    if compare != 0 then return compare end
-    compare = left_version[2].to_i <=> right_version[2].to_i
-    if compare != 0 then return compare end
-    compare = left_version[3].to_i <=> right_version[3].to_i
-    if compare != 0 then return compare end
-
-    return 0
   end
 
   VersionSpec = Struct.new(:lower_bound, :upper_bound, :inc_lower_bound, :inc_upper_bound)

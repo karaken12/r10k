@@ -84,6 +84,14 @@ describe R10K::Module::Forge do
       expect(subject.v3_module).to receive(:latest_version).at_least(:once).and_return('8.8.8')
       expect(subject.expected_version).to eq '8.8.8'
     end
+
+    it "uses a lower version if there's an upper bound" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 8.1.0 < 8.2.0')
+      expect(subject).to receive(:current_version).at_least(:once).and_return('8.0.0')
+#      expect(subject.v3_module).to receive(:latest_version).at_least(:once).and_return('8.8.8')
+      expect(subject.v3_module).to receive(:versions).at_least(:once).and_return(['8.0.0','8.1.0', '8.1.1', '8.1.2', '8.2.0'])
+      expect(subject.expected_version).to eq '8.1.2'
+    end
   end
 
   describe 'determine the version spec' do
@@ -174,26 +182,22 @@ describe R10K::Module::Forge do
 
   describe "compare versions" do
     it "recognises equal versions" do
-      expect(described_class.compare_versions('1.0.0', '1.0.0')).to eq 0
-      expect(described_class.version_less_than('1.0.0', '1.0.0', true)).to eq true
-      expect(described_class.version_less_than('1.0.0', '1.0.0', false)).to eq false
+      expect(described_class::ForgeVersion.new('1.0.0') == described_class::ForgeVersion.new('1.0.0')).to eq true
     end
 
     it "major" do
-      expect(described_class.compare_versions('1.6.6', '2.3.3')).to eq -1
-      expect(described_class.compare_versions('2.6.6', '1.3.3')).to eq 1
-      expect(described_class.version_less_than('1.6.6', '2.3.3', false)).to eq true
-      expect(described_class.version_less_than('2.6.6', '1.3.3', false)).to eq false
+      expect(described_class::ForgeVersion.new('1.6.6') < described_class::ForgeVersion.new('2.3.3')).to eq true
+      expect(described_class::ForgeVersion.new('2.6.6') < described_class::ForgeVersion.new('1.3.3')).to eq false
     end
 
     it "minor" do
-      expect(described_class.compare_versions('1.1.6', '1.2.3')).to eq -1
-      expect(described_class.compare_versions('1.2.6', '1.1.3')).to eq 1
+      expect(described_class::ForgeVersion.new('1.1.6') < described_class::ForgeVersion.new('1.2.3')).to eq true
+      expect(described_class::ForgeVersion.new('1.2.6') < described_class::ForgeVersion.new('1.1.3')).to eq false
     end
 
     it "revision" do
-      expect(described_class.compare_versions('1.1.1', '1.1.2')).to eq -1
-      expect(described_class.compare_versions('1.1.2', '1.1.1')).to eq 1
+      expect(described_class::ForgeVersion.new('1.1.1') < described_class::ForgeVersion.new('1.1.2')).to eq true
+      expect(described_class::ForgeVersion.new('1.1.2') < described_class::ForgeVersion.new('1.1.1')).to eq false
     end
   end
 
