@@ -70,6 +70,9 @@ class R10K::Module::Forge < R10K::Module::Base
 
   # @return [String] A version that matches the version of the module
   def get_matching_version()
+    # Before anything, check if the version spec is well defined.
+    # If not, there's no point carrying on.
+    if !version_spec then return nil end
     # First check if the current version works
     if current_version
       if version_in_range(current_version) then return current_version end

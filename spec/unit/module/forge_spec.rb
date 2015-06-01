@@ -92,6 +92,20 @@ describe R10K::Module::Forge do
       expect(subject.v3_module).to receive(:versions).at_least(:once).and_return(['8.0.0','8.1.0', '8.1.1', '8.1.2', '8.2.0'])
       expect(subject.expected_version).to eq '8.1.2'
     end
+
+    it "fails for a badly specified version" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 3.2.x')
+      # expect errors!
+      expect(subject.expected_version).to be_nil
+    end
+
+    it "fails for an unsatisfyable condition" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '> 2.0.0 <= 1.0.0')
+      expect(subject).to receive(:current_version).at_least(:once).and_return('8.0.0')
+      expect(subject.v3_module).to receive(:versions).at_least(:once).and_return(['8.0.0','8.1.0', '8.1.1', '8.1.2', '8.2.0'])
+      # expect errors!
+      expect(subject.expected_version).to be_nil
+    end
   end
 
   describe 'determine the version spec' do
@@ -153,6 +167,18 @@ describe R10K::Module::Forge do
       expect(subject.version_spec.inc_lower_bound).to eq true
       expect(subject.version_spec.inc_upper_bound).to eq false
     end
+
+    it "does not allow out-of-order specifications" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '<= 1.0.0 > 2.0.0')
+      #expect errors!
+      expect(subject.version_spec).to be_nil
+    end
+
+    it "does not allow mixing shorthand with relational operators" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '>= 3.2.x')
+      # expect errors!
+      expect(subject.version_spec).to be_nil
+    end
   end
 
   describe "check version acceptability" do
@@ -177,6 +203,15 @@ describe R10K::Module::Forge do
       subject = described_class.new('branan/eight_hundred', fixture_modulepath, '> 1.0.0 < 2.0.0')
       expect(subject.version_in_range('1.0.0')).to eq false
       expect(subject.version_in_range('2.0.0')).to eq false
+    end
+
+    it "does not allow impossible matches" do
+      subject = described_class.new('branan/eight_hundred', fixture_modulepath, '> 2.0.0 <= 1.0.0')
+      expect(subject.version_in_range('0.5.0')).to eq false
+      expect(subject.version_in_range('1.0.0')).to eq false
+      expect(subject.version_in_range('1.5.0')).to eq false
+      expect(subject.version_in_range('2.0.0')).to eq false
+      expect(subject.version_in_range('3.0.0')).to eq false
     end
   end
 
